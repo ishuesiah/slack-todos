@@ -1,0 +1,34 @@
+display_information:
+  name: Task Bot
+  description: Create and track tasks right from Slack, stored in Notion.
+  background_color: "#1a1a2e"
+
+features:
+  bot_user:
+    display_name: Task Bot
+    always_online: true
+  slash_commands:
+    - command: /task
+      # Replace with your Vercel deployment URL
+      url: https://your-app.vercel.app/api/slack
+      description: Create, list, and manage tasks
+      usage_hint: "[add | list | list @user | list all | help]"
+      should_escape: false
+
+oauth_config:
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - chat:write.public
+      - users:read
+      - im:write
+
+settings:
+  interactivity:
+    is_enabled: true
+    # Replace with your Vercel deployment URL
+    request_url: https://your-app.vercel.app/api/slack
+  socket_mode_enabled: false   # HTTP mode for Vercel
+  org_deploy_enabled: false
+  token_rotation_enabled: false

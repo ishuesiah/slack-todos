@@ -1,0 +1,17 @@
+{
+  "name": "slack-todos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Slack slash command task bot backed by Notion and deployed on Vercel.",
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.3.0",
+    "@slack/types": "^2.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "typescript": "^5.9.3"
+  }
+}

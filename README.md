@@ -9,6 +9,7 @@ A small Slack slash-command bot that stores tasks in Notion and is ready to depl
 - `/task list`
 - `/task list @teammate`
 - `/task list all`
+- `/mytasks`
 - Mark tasks done from a Slack button
 
 ## Project structure

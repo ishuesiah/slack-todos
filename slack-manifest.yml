@@ -14,6 +14,12 @@ features:
       description: Create, list, and manage tasks
       usage_hint: "[add | list | list @user | list all | help]"
       should_escape: false
+    - command: /mytasks
+      # Replace with your Vercel deployment URL
+      url: https://your-app.vercel.app/api/slack
+      description: List your current open tasks
+      usage_hint: ""
+      should_escape: false
 
 oauth_config:
   scopes:

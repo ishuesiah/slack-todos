@@ -1,4 +1,3 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   createTask,
   getRecommendedNotionSchema,
@@ -20,24 +19,16 @@ import {
   verifySlackSignature
 } from "../src/lib/slack.js";
 
-async function readRawBody(req: IncomingMessage) {
-  const chunks: Buffer[] = [];
-
-  for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-
-  return Buffer.concat(chunks).toString("utf8");
-}
-
-function sendJson(
-  res: ServerResponse,
-  statusCode: number,
-  body: SlackMessageResponse | Record<string, unknown>
+function jsonResponse(
+  body: SlackMessageResponse | Record<string, unknown>,
+  status = 200
 ) {
-  res.statusCode = statusCode;
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.end(JSON.stringify(body));
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8"
+    }
+  });
 }
 
 function buildHelpResponse(): SlackMessageResponse {
@@ -56,6 +47,7 @@ function buildHelpResponse(): SlackMessageResponse {
             "`/task list`",
             "`/task list @teammate`",
             "`/task list all`",
+            "`/mytasks`",
             "",
             "Tasks are stored in Notion and can be marked done from Slack."
           ].join("\n")
@@ -194,6 +186,11 @@ async function handleListCommand(command: SlashCommandPayload) {
 }
 
 async function handleSlashCommand(command: SlashCommandPayload) {
+  if (command.command === "/mytasks") {
+    const tasks = await listTasks({ assigneeSlackId: command.user_id });
+    return buildTaskBlocks(tasks, "Your open tasks");
+  }
+
   const trimmedText = command.text.trim();
   const [subcommand] = trimmedText.split(/\s+/, 1);
   const normalizedSubcommand = (subcommand ?? "help").toLowerCase();
@@ -302,30 +299,29 @@ function buildErrorResponse(error: unknown): SlackMessageResponse {
   };
 }
 
-export default async function handler(
-  req: IncomingMessage & { method?: string; headers: IncomingMessage["headers"] },
-  res: ServerResponse
-) {
-  if (req.method !== "POST") {
-    sendJson(res, 405, { error: "Method not allowed" });
-    return;
+export async function GET() {
+  return jsonResponse({ error: "Method not allowed" }, 405);
+}
+
+export async function POST(request: Request) {
+  const rawBody = await request.text();
+
+  if (!rawBody) {
+    return jsonResponse({ error: "Request body is required" }, 400);
   }
 
-  const rawBody = await readRawBody(req);
   const env = getEnv();
 
   if (
     !verifySlackSignature({
       rawBody,
-      slackSignature: req.headers["x-slack-signature"] as string | undefined,
-      slackTimestamp: req.headers["x-slack-request-timestamp"] as
-        | string
-        | undefined,
+      slackSignature: request.headers.get("x-slack-signature") ?? undefined,
+      slackTimestamp:
+        request.headers.get("x-slack-request-timestamp") ?? undefined,
       signingSecret: env.slackSigningSecret
     })
   ) {
-    sendJson(res, 401, { error: "Invalid Slack signature" });
-    return;
+    return jsonResponse({ error: "Invalid Slack signature" }, 401);
   }
 
   try {
@@ -334,14 +330,18 @@ export default async function handler(
     if (rawBody.includes("payload=")) {
       const payload = parseInteractivePayload(rawBody);
       const response = await handleAction(payload);
-      sendJson(res, 200, response);
-      return;
+      return jsonResponse(response);
     }
 
     const command = parseSlashCommand(rawBody);
     const response = await handleSlashCommand(command);
-    sendJson(res, 200, response);
+    return jsonResponse(response);
   } catch (error) {
-    sendJson(res, 200, buildErrorResponse(error));
+    return jsonResponse(buildErrorResponse(error));
   }
 }
+
+export default {
+  GET,
+  POST
+};

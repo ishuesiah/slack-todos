@@ -2,7 +2,10 @@ import { Client } from "@notionhq/client";
 import type { PageObjectResponse } from "@notionhq/client/build/src/api-endpoints.js";
 import { getEnv } from "./env.js";
 
-const notion = new Client({ auth: getEnv().notionToken });
+function getNotionClient() {
+  const { notionToken } = getEnv();
+  return new Client({ auth: notionToken });
+}
 
 export type TaskRecord = {
   id: string;
@@ -100,6 +103,7 @@ function parseTask(page: unknown): TaskRecord {
 
 export async function createTask(input: CreateTaskInput) {
   const { notionDatabaseId } = getEnv();
+  const notion = getNotionClient();
   const now = new Date().toISOString();
 
   const page = await notion.pages.create({
@@ -177,6 +181,7 @@ export async function createTask(input: CreateTaskInput) {
 
 export async function listTasks(input: ListTasksInput) {
   const { notionDatabaseId } = getEnv();
+  const notion = getNotionClient();
   const filter: Array<Record<string, unknown>> = [];
 
   if (!input.includeDone) {
@@ -220,6 +225,7 @@ export async function listTasks(input: ListTasksInput) {
 }
 
 export async function markTaskDone(taskId: string) {
+  const notion = getNotionClient();
   const page = await notion.pages.update({
     page_id: taskId,
     properties: {
@@ -235,12 +241,14 @@ export async function markTaskDone(taskId: string) {
 }
 
 export async function getTask(taskId: string) {
+  const notion = getNotionClient();
   const page = await notion.pages.retrieve({ page_id: taskId });
   return parseTask(page);
 }
 
 export async function validateDatabaseAccess() {
   const { notionDatabaseId } = getEnv();
+  const notion = getNotionClient();
   await notion.databases.retrieve({ database_id: notionDatabaseId });
 }
 

@@ -1,5 +1,6 @@
 const requiredEnvVars = [
   "SLACK_SIGNING_SECRET",
+  "SLACK_BOT_TOKEN",
   "NOTION_TOKEN",
   "NOTION_DATABASE_ID"
 ] as const;
@@ -19,7 +20,9 @@ function readEnvVar(name: RequiredEnvVar): string {
 export function getEnv() {
   return {
     slackSigningSecret: readEnvVar("SLACK_SIGNING_SECRET"),
+    slackBotToken: readEnvVar("SLACK_BOT_TOKEN"),
     notionToken: readEnvVar("NOTION_TOKEN"),
-    notionDatabaseId: readEnvVar("NOTION_DATABASE_ID")
+    notionDatabaseId: readEnvVar("NOTION_DATABASE_ID"),
+    cronSecret: process.env.CRON_SECRET
   };
 }

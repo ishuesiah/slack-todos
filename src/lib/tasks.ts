@@ -17,6 +17,7 @@ export type TaskRecord = {
   createdByName: string;
   channelId: string;
   createdAt: string;
+  lastRemindedAt: string | null;
   notionUrl: string;
 };
 
@@ -73,6 +74,7 @@ function parseTask(page: unknown): TaskRecord {
   const createdByName = properties.CreatedByName;
   const channelId = properties.ChannelId;
   const createdAt = properties.CreatedAt;
+  const lastRemindedAt = properties.LastRemindedAt;
 
   if (
     title?.type !== "title" ||
@@ -97,6 +99,7 @@ function parseTask(page: unknown): TaskRecord {
     createdByName: getPlainTextFromRichText(createdByName.rich_text),
     channelId: getPlainTextFromRichText(channelId.rich_text),
     createdAt: createdAt.date?.start ?? "",
+    lastRemindedAt: lastRemindedAt?.type === "date" ? (lastRemindedAt.date?.start ?? null) : null,
     notionUrl: page.url
   };
 }
@@ -252,6 +255,71 @@ export async function validateDatabaseAccess() {
   await notion.databases.retrieve({ database_id: notionDatabaseId });
 }
 
+export async function updateLastRemindedAt(taskId: string) {
+  const notion = getNotionClient();
+  const now = new Date().toISOString();
+
+  const page = await notion.pages.update({
+    page_id: taskId,
+    properties: {
+      LastRemindedAt: {
+        date: {
+          start: now
+        }
+      }
+    }
+  });
+
+  return parseTask(page);
+}
+
+export async function getTasksNeedingReminder(daysOld: number, reminderIntervalDays: number) {
+  const { notionDatabaseId } = getEnv();
+  const notion = getNotionClient();
+
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+  const response = await notion.databases.query({
+    database_id: notionDatabaseId,
+    filter: {
+      and: [
+        {
+          property: "Status",
+          select: {
+            equals: "Open"
+          }
+        },
+        {
+          property: "CreatedAt",
+          date: {
+            on_or_before: cutoffDate.toISOString().split("T")[0]
+          }
+        }
+      ]
+    },
+    sorts: [
+      {
+        property: "CreatedAt",
+        direction: "ascending"
+      }
+    ]
+  });
+
+  const tasks = response.results.map(parseTask);
+
+  const reminderCutoff = new Date();
+  reminderCutoff.setDate(reminderCutoff.getDate() - reminderIntervalDays);
+
+  return tasks.filter((task) => {
+    if (!task.lastRemindedAt) {
+      return true;
+    }
+    const lastReminded = new Date(task.lastRemindedAt);
+    return lastReminded < reminderCutoff;
+  });
+}
+
 export function getRecommendedNotionSchema() {
   return [
     { name: "Title", type: "Title" },
@@ -261,6 +329,7 @@ export function getRecommendedNotionSchema() {
     { name: "CreatedBySlackId", type: "Text" },
     { name: "CreatedByName", type: "Text" },
     { name: "ChannelId", type: "Text" },
-    { name: "CreatedAt", type: "Date" }
+    { name: "CreatedAt", type: "Date" },
+    { name: "LastRemindedAt", type: "Date" }
   ];
 }
